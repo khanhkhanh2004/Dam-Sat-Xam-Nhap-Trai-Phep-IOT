@@ -1,4 +1,13 @@
-# Phát hiện xâm nhập trái phép bằng YOLOv5 chạy trên Web
+<h3 align="center">Phát hiện xâm nhập trái phép bằng YOLOv5</h3>
+
+<div align="center">
+
+<p align="center">
+  <img src="dnu_logo.png" alt="DaiNam University Logo" width="200"/>
+  <img src="khoa_cntt.png" alt="AIoTLab Logo" width="170"/>
+</p>
+</div>
+
 
 ## 1. Mục tiêu đề tài
 Hệ thống sử dụng YOLOv5 để phát hiện người trong video/camera. Người dùng có thể tự kẻ một vùng cấm trên giao diện web. Khi có người đi vào vùng cấm, hệ thống sẽ cảnh báo, lưu ảnh xâm nhập và hiển thị trạng thái trên web.
