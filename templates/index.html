@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Hệ Thống Phát Hiện Xâm Nhập Trái Phép</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #0f172a;
+            color: #e5e7eb;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1e293b, #020617);
+            padding: 22px 36px;
+            border-bottom: 1px solid #334155;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 26px;
+            color: #38bdf8;
+        }
+
+        header p {
+            margin: 6px 0 0;
+            color: #94a3b8;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 1fr 360px;
+            gap: 20px;
+            padding: 24px;
+        }
+
+        .video-box {
+            background: #020617;
+            border: 1px solid #334155;
+            border-radius: 18px;
+            padding: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,.35);
+        }
+
+        .video-wrap {
+            position: relative;
+            width: 100%;
+        }
+
+        #video {
+            width: 100%;
+            border-radius: 14px;
+            border: 2px solid #334155;
+            display: block;
+        }
+
+        #roiCanvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        .panel {
+            background: #020617;
+            border: 1px solid #334155;
+            border-radius: 18px;
+            padding: 18px;
+            box-shadow: 0 10px 30px rgba(0,0,0,.35);
+        }
+
+        .panel h2 {
+            margin-top: 0;
+            color: #38bdf8;
+            font-size: 20px;
+        }
+
+        .status {
+            display: grid;
+            gap: 12px;
+        }
+
+        .card {
+            background: #111827;
+            border: 1px solid #1f2937;
+            border-radius: 14px;
+            padding: 14px;
+        }
+
+        .label {
+            color: #94a3b8;
+            font-size: 13px;
+        }
+
+        .value {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 4px;
+        }
+
+        .ok {
+            color: #22c55e;
+        }
+
+        .warn {
+            color: #f59e0b;
+        }
+
+        .danger {
+            color: #ef4444;
+        }
+
+        .blue {
+            color: #38bdf8;
+        }
+
+        .buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        button {
+            border: none;
+            padding: 12px;
+            border-radius: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            color: white;
+        }
+
+        button:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        .save {
+            background: #0284c7;
+        }
+
+        .clear {
+            background: #dc2626;
+        }
+
+        .start {
+            background: #16a34a;
+        }
+
+        .stop {
+            background: #ca8a04;
+        }
+
+        .note {
+            margin-top: 16px;
+            font-size: 14px;
+            color: #94a3b8;
+            line-height: 1.5;
+        }
+
+        .lock-info {
+            margin-top: 12px;
+            padding: 10px;
+            border-radius: 12px;
+            background: #111827;
+            border: 1px solid #334155;
+            color: #facc15;
+            font-size: 14px;
+            display: none;
+        }
+
+        footer {
+            text-align: center;
+            padding: 16px;
+            color: #64748b;
+        }
+
+        @media (max-width: 1000px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>Hệ Thống Phát Hiện Xâm Nhập Trái Phép Bằng YOLOv5</h1>
+    <p>Chọn vùng cấm, bắt đầu giám sát, phát hiện người xâm nhập và gửi cảnh báo tự động qua Zalo</p>
+</header>
+
+<div class="layout">
+    <div class="video-box">
+        <div class="video-wrap">
+            <img id="video" src="/video_feed">
+            <canvas id="roiCanvas"></canvas>
+        </div>
+    </div>
+
+    <div class="panel">
+        <h2>Bảng Điều Khiển</h2>
+
+        <div class="status">
+            <div class="card">
+                <div class="label">Trạng thái nguồn</div>
+                <div class="value" id="source">...</div>
+            </div>
+
+            <div class="card">
+                <div class="label">Chế độ giám sát</div>
+                <div class="value" id="mode">...</div>
+            </div>
+
+            <div class="card">
+                <div class="label">Số người phát hiện</div>
+                <div class="value blue" id="persons">0</div>
+            </div>
+
+            <div class="card">
+                <div class="label">Người trong vùng cấm</div>
+                <div class="value warn" id="intruders">0</div>
+            </div>
+
+            <div class="card">
+                <div class="label">Cảnh báo xâm nhập</div>
+                <div class="value" id="intrusion">...</div>
+            </div>
+
+            <div class="card">
+                <div class="label">Tổng số cảnh báo</div>
+                <div class="value danger" id="alerts">0</div>
+            </div>
+
+            <div class="card">
+                <div class="label">Lần cảnh báo gần nhất</div>
+                <div class="value" style="font-size:16px" id="lastAlert">Chưa có</div>
+            </div>
+        </div>
+
+        <div class="buttons">
+            <button class="save" id="btnSave" onclick="saveROI()">Lưu vùng cấm</button>
+            <button class="clear" id="btnClear" onclick="clearROI()">Xóa vùng</button>
+            <button class="start" id="btnStart" onclick="startSystem()">Bắt đầu</button>
+            <button class="stop" id="btnStop" onclick="stopSystem()">Dừng</button>
+        </div>
+
+        <div class="lock-info" id="lockInfo">
+            Hệ thống đang chạy. Vùng cấm đã bị khóa, không thể chỉnh sửa.
+        </div>
+
+        <div class="note">
+            <b>Hướng dẫn:</b><br>
+            1. Click trực tiếp lên video để chọn các điểm tạo vùng cấm.<br>
+            2. Bấm <b>Lưu vùng cấm</b>.<br>
+            3. Bấm <b>Bắt đầu</b> để hệ thống giám sát.<br>
+            4. Khi đang chạy, vùng cấm sẽ bị khóa và không thể chỉnh sửa.
+        </div>
+    </div>
+</div>
+
+<footer>
+    Đồ án: Phát hiện xâm nhập trái phép bằng YOLOv5
+</footer>
+
+<script>
+    const canvas = document.getElementById("roiCanvas");
+    const video = document.getElementById("video");
+    const ctx = canvas.getContext("2d");
+
+    const btnSave = document.getElementById("btnSave");
+    const btnClear = document.getElementById("btnClear");
+    const btnStart = document.getElementById("btnStart");
+    const btnStop = document.getElementById("btnStop");
+    const lockInfo = document.getElementById("lockInfo");
+
+    let points = [];
+    let roiLocked = false;
+
+    function resizeCanvas() {
+        canvas.width = video.clientWidth;
+        canvas.height = video.clientHeight;
+        drawPoints();
+    }
+
+    window.addEventListener("resize", resizeCanvas);
+    video.addEventListener("load", resizeCanvas);
+    setTimeout(resizeCanvas, 500);
+
+    canvas.addEventListener("click", function(e) {
+        if (roiLocked) {
+            alert("Hệ thống đang chạy, không thể chỉnh sửa vùng cấm.");
+            return;
+        }
+
+        const rect = canvas.getBoundingClientRect();
+
+        const xDisplay = e.clientX - rect.left;
+        const yDisplay = e.clientY - rect.top;
+
+        const videoW = video.naturalWidth || 640;
+        const videoH = video.naturalHeight || 480;
+
+        const xReal = Math.round(xDisplay * videoW / canvas.width);
+        const yReal = Math.round(yDisplay * videoH / canvas.height);
+
+        points.push({
+            x: xReal,
+            y: yReal
+        });
+
+        drawPoints();
+    });
+
+    function drawPoints() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (points.length === 0) {
+            return;
+        }
+
+        const videoW = video.naturalWidth || 640;
+        const videoH = video.naturalHeight || 480;
+
+        ctx.beginPath();
+
+        points.forEach((p, i) => {
+            const x = p.x * canvas.width / videoW;
+            const y = p.y * canvas.height / videoH;
+
+            if (i === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        });
+
+        if (points.length >= 3) {
+            ctx.closePath();
+        }
+
+        ctx.fillStyle = roiLocked
+            ? "rgba(239, 68, 68, 0.25)"
+            : "rgba(14, 165, 233, 0.25)";
+
+        ctx.fill();
+
+        ctx.strokeStyle = roiLocked ? "#ef4444" : "#38bdf8";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        points.forEach(p => {
+            const x = p.x * canvas.width / videoW;
+            const y = p.y * canvas.height / videoH;
+
+            ctx.beginPath();
+            ctx.arc(x, y, 6, 0, Math.PI * 2);
+            ctx.fillStyle = roiLocked ? "#facc15" : "#ef4444";
+            ctx.fill();
+        });
+    }
+
+    function updateLockUI() {
+        canvas.style.cursor = roiLocked ? "not-allowed" : "crosshair";
+
+        btnSave.disabled = roiLocked;
+        btnClear.disabled = roiLocked;
+        btnStart.disabled = roiLocked;
+        btnStop.disabled = !roiLocked;
+
+        lockInfo.style.display = roiLocked ? "block" : "none";
+
+        drawPoints();
+    }
+
+    async function saveROI() {
+        if (roiLocked) {
+            alert("Hệ thống đang chạy, không thể lưu lại vùng cấm.");
+            return;
+        }
+
+        if (points.length < 3) {
+            alert("Bạn cần chọn ít nhất 3 điểm để tạo vùng cấm.");
+            return;
+        }
+
+        const res = await fetch("/api/roi", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                points: points
+            })
+        });
+
+        const data = await res.json();
+
+        alert(data.message || "Đã lưu vùng cấm.");
+    }
+
+    async function clearROI() {
+        if (roiLocked) {
+            alert("Hệ thống đang chạy, không thể xóa vùng cấm.");
+            return;
+        }
+
+        points = [];
+        drawPoints();
+
+        const res = await fetch("/api/roi/clear", {
+            method: "POST"
+        });
+
+        const data = await res.json();
+
+        alert(data.message || "Đã xóa vùng cấm.");
+    }
+
+    async function startSystem() {
+        if (points.length < 3) {
+            alert("Bạn cần chọn và lưu vùng cấm trước khi bắt đầu.");
+            return;
+        }
+
+        const res = await fetch("/api/start", {
+            method: "POST"
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            alert(data.message || "Không thể bắt đầu hệ thống.");
+            return;
+        }
+
+        roiLocked = true;
+        updateLockUI();
+
+        alert(data.message || "Hệ thống đã bắt đầu giám sát.");
+    }
+
+    async function stopSystem() {
+        const res = await fetch("/api/stop", {
+            method: "POST"
+        });
+
+        const data = await res.json();
+
+        roiLocked = false;
+        updateLockUI();
+
+        alert(data.message || "Hệ thống đã dừng. Bạn có thể chỉnh sửa vùng cấm.");
+    }
+
+    async function updateStatus() {
+        const res = await fetch("/api/status");
+        const data = await res.json();
+
+        roiLocked = data.roi_locked;
+        updateLockUI();
+
+        document.getElementById("source").innerHTML =
+            data.source_active
+                ? "<span class='ok'>Đang hoạt động</span>"
+                : "<span class='danger'>Chưa chạy</span>";
+
+        document.getElementById("mode").innerHTML =
+            data.guard_mode
+                ? "<span class='warn'>Đang giám sát</span>"
+                : "<span class='ok'>Trong giờ học</span>";
+
+        document.getElementById("persons").innerText = data.persons;
+        document.getElementById("intruders").innerText = data.intruders;
+        document.getElementById("alerts").innerText = data.alerts;
+
+        document.getElementById("intrusion").innerHTML =
+            data.intrusion
+                ? "<span class='danger'>CÓ XÂM NHẬP</span>"
+                : "<span class='ok'>An toàn</span>";
+
+        document.getElementById("lastAlert").innerText =
+            data.last_alert || "Chưa có";
+    }
+
+    updateLockUI();
+    setInterval(updateStatus, 1000);
+    updateStatus();
+</script>
+
+</body>
+</html>

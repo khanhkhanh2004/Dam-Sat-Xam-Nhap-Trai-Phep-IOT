@@ -1,0 +1,6 @@
+__pycache__/
+intrusion_images/
+.agent/
+*.pyc
+*.mp4
+video*
